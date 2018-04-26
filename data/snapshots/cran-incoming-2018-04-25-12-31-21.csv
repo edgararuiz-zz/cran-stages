@@ -1,0 +1,12 @@
+lines,subfolder,snapshot_date,snapshot_time
+drwxrwsr-x    6 1021     1001         4096 Apr 23 08:43 DS,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 1001     1001         4096 Apr 11 16:53 KH,root,2018-04-25,2018-04-25T17:31:21Z
+drwxr-sr-x    2 1023     1001         4096 Apr 25 15:03 SH,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    6 1010     1001         4096 Apr 22 15:13 UL,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 1010     1001         4096 Apr 25 19:14 archive,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 1010     1001         4096 Apr 25 18:37 inspect,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 1010     1001         4096 Apr 25 16:24 pending,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 105      1001         4096 Apr 25 19:25 pretest,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 1010     1001         4096 Apr 25 19:28 publish,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 1010     1001         4096 Apr 25 19:28 recheck,root,2018-04-25,2018-04-25T17:31:21Z
+drwxrwsr-x    2 1001     1001         4096 Apr 12 18:15 waiting,root,2018-04-25,2018-04-25T17:31:21Z
