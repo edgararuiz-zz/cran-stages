@@ -3,152 +3,218 @@ CRAN Analysis
 Edgar Ruiz
 4/25/2018
 
+  - [Approach](#approach)
+  - [Insights](#insights)
+  - [Assets](#assets)
+      - [Data](#data)
+      - [Scripts](#scripts)
+  - [Quick Analysis](#quick-analysis)
+      - [Wait time histograms](#wait-time-histograms)
+      - [Package flow](#package-flow)
+
+## Aproach
+
+The approach was to record snapshots of the CRAN Incoming folder
+contents in a regular interval (<ftp://cran.r-project.org/incoming/>).
+Inside the Incoming folder, there are sub-folders that equate to the
+status in which the package is at that time. Knowing when a given
+package enters and leaves a sub-folder, and where it goes after that,
+provides the information that we used to determine direction and
+duration of each package movement.
+
+During the exercise, we also matched the CRAN Incoming data with the
+CRAN package data to determine which packages ended up as published in
+CRAN, and make the assumption that those who didn’t, and have no current
+status, were dropped by the CRAN review process.
+
+The team was able to make determinations of what the flow and timing
+looks like based on several visualizations, and by monitoring the
+changes over time.
+
+## Insights
+
+Hadley Wickham (@hadley) distilled our findings into the following
+diagram. Again, please note that this diagram is based on assumptions
+based on snapshots of the Incoming folder. This is not the **official**
+CRAN process, just an analysis to help derive the current process:
+
+![](images/cran-diagram.png)
+
+## Assets
+
 ## Data
 
-All of the data captured from 2/26 to 3/20 is available in the `data`
-subfolder. They are all filted and/or transformed versions of the same
-data.
+All of the data captured from 2/26/2018 to 3/20/2018. The files are
+available in the `data` folder They are all filtered and/or transformed
+versions of the same source:
 
-## Quick glance
+  - `raw_data.RDS`- It contains the raw content of what was returned by
+    the `curl` command, the time/date of the snapshot that line belongs
+    to, and the sub-folder inside the **Incoming** folder it is located
+    in. The automated job was set to run every 15 minutes, so many
+    contiguous snapshots will be either very similar or exactly the
+    same:
+    
+        ## Observations: 305,683
+        ## Variables: 4
+        ## $ lines         <chr> "drwxr-sr-x    2 1021     1001         4096 May 03  2017 notok", "drwxr-s...
+        ## $ subfolder     <chr> "DS", "DS", "KH", "UL", "UL", "UL", "UL", "UL", "UL", "archive", "archive...
+        ## $ snapshot_date <chr> "2018-02-26", "2018-02-26", "2018-02-26", "2018-02-26", "2018-02-26", "20...
+        ## $ snapshot_time <chr> "2018-02-26 16:00:59", "2018-02-26 16:00:59", "2018-02-26 16:00:59", "201...
+
+  - `incoming_df.RDS` - Adds two important fields to the raw data: an
+    `is_package` flag, and the package’s name if it is a package. They
+    way it identify packages is by checking if the file has the
+    extension: `.tar.gz`
+    
+        ## Observations: 305,683
+        ## Variables: 7
+        ## $ lines         <chr> "drwxr-sr-x    2 1021     1001         4096 May 03  2017 notok", "drwxr-s...
+        ## $ subfolder     <chr> "DS", "DS", "KH", "UL", "UL", "UL", "UL", "UL", "UL", "archive", "archive...
+        ## $ snapshot_date <chr> "2018-02-26", "2018-02-26", "2018-02-26", "2018-02-26", "2018-02-26", "20...
+        ## $ snapshot_time <chr> "2018-02-26 16:00:59", "2018-02-26 16:00:59", "2018-02-26 16:00:59", "201...
+        ## $ line          <chr> "notok", "ok", "bayesLopod_1.0.1.tar.gz", "../archive/", "jtools", "magic...
+        ## $ is_package    <lgl> FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE,...
+        ## $ package       <chr> "", "", "bayesLopod", "", "", "", "", "", "", "AStat", "AStat", "Ac3net",...
+
+  - `tidy_incoming.RDS` - Filtered version of `incoming_df`. It contains
+    only those the entries for files identified as packages:
+    
+        ## Observations: 85,283
+        ## Variables: 3
+        ## $ package       <chr> "bayesLopod", "TSVC", "cptcity", "eixport", "nmslibR", "onlineVAR", "proc...
+        ## $ subfolder     <chr> "KH", "inspect", "inspect", "inspect", "inspect", "inspect", "inspect", "...
+        ## $ snapshot_time <chr> "2018-02-26 16:00:59", "2018-02-26 16:00:59", "2018-02-26 16:00:59", "201...
+
+  - `package_history.RDS` - It compresses the snapshots from
+    `tidy_incoming` into unique entries that *attempt* to identify when
+    the package enters and leaves a given sub-folder, which is how the
+    status is tracked.
+    
+        ## Observations: 2,252
+        ## Variables: 5
+        ## $ package      <chr> "A2", "A2", "abnormality", "abnormality", "Ac3net", "Ac3net", "Ac3net", "A...
+        ## $ subfolder    <chr> "pretest", "inspect", "pretest", "inspect", "inspect", "pretest", "inspect...
+        ## $ start        <dttm> 2018-03-06 16:34:09, 2018-03-06 16:48:58, 2018-02-27 20:49:46, 2018-03-12...
+        ## $ end          <dttm> 2018-03-06 16:34:09, 2018-03-09 03:04:26, 2018-03-12 12:19:19, 2018-03-13...
+        ## $ wait_minutes <dbl> 0, 3495, 18210, 1380, 60, 660, 31, 0, 105, 60, 30, 31, 210, 15, 225, 2025,...
+
+### Scripts
+
+There are three R scripts included in this project. They can be used to
+build your own snapshots and to compile them. They are also meant to
+provide more background about how the data that is shared in this
+project was captured and tabulated. All of the scripts are located in
+the R folder:
+
+  - `take-snapshot.R` - Code to capture and save a snapshot of the
+    Incoming CRAN folder
+  - `compile-snapshot.R` - Code to merge all of the snapshots taken by
+    the code in the `take_snapshot.R` script into one data set. It
+    creates the `raw_data`, `incoming_df` and `tidy_incoming` tibbles.
+  - `package-history.R` - It creates the `package_history` tibble.
+
+## Quick analysis
 
 The `package_history` data contains a pre-calculated version of the data
 that contains the number of minutes that the package spent in that
-specific folder, before either disapearing or moving to another folder.
+specific folder, before either disappearing or moving to another folder.
 
 ``` r
 library(tidyverse)
 
+steps <- 7
+color_names <-  c("pretest", "publish", "inspect", "recheck", "human", "waiting")
+color_values <- c("#F0E442", "#009E73", "#0072B2", "#CC79A7", "#E69F00", "gray")
 
 package_history <- read_rds("data/package_history.RDS")
 
-package_history %>%
-  arrange(package, start) %>%
-  select(package, subfolder, wait_minutes)
+package_count <- package_history %>%
+  group_by(package) %>%
+  summarise() %>%
+  nrow()
+
+print(paste0("There were ", package_count, " packages tracked during the analysis"))
 ```
 
-    ## # A tibble: 2,252 x 3
-    ##    package     subfolder wait_minutes
-    ##    <chr>       <chr>            <dbl>
-    ##  1 A2          pretest             0.
-    ##  2 A2          inspect          3495.
-    ##  3 abnormality pretest         18210.
-    ##  4 abnormality inspect          1380.
-    ##  5 Ac3net      inspect            60.
-    ##  6 Ac3net      pretest           660.
-    ##  7 Ac3net      inspect            31.
-    ##  8 ACMEeqtl    pretest             0.
-    ##  9 ACMEeqtl    inspect           105.
-    ## 10 acs         recheck            60.
-    ## # ... with 2,242 more rows
+    ## [1] "There were 847 packages tracked during the analysis"
 
 ``` r
-steps <- 10
-color_names <- c("inspect", "KH", "pretest", "publish", "recheck", "SH", "waiting", "UL")
-color_values <- c("#F0E442", "#009E73", "#0072B2", "#CC79A7", "#E69F00", "gray", "red", "black")
-
-
 history <- package_history %>%
+  filter(subfolder != "waiting") %>%
   group_by(package) %>%
   arrange(start) %>% 
-  mutate(step = row_number()) %>%
+  mutate(
+    step = row_number(),
+    subfolder = ifelse(subfolder %in% c("SH", "UL", "KH"), "human", subfolder)
+    ) %>%
   ungroup() %>% 
   arrange(package, step) %>%
   filter(step < steps) 
 
-history
+glimpse(history)
 ```
 
-    ## # A tibble: 1,982 x 6
-    ##    package  subfolder start               end                 wait_minutes
-    ##    <chr>    <chr>     <dttm>              <dttm>                     <dbl>
-    ##  1 A2       pretest   2018-03-06 16:34:09 2018-03-06 16:34:09           0.
-    ##  2 A2       inspect   2018-03-06 16:48:58 2018-03-09 03:04:26        3495.
-    ##  3 abnorma~ pretest   2018-02-27 20:49:46 2018-03-12 12:19:19       18210.
-    ##  4 abnorma~ inspect   2018-03-12 12:34:27 2018-03-13 11:34:14        1380.
-    ##  5 Ac3net   inspect   2018-02-26 15:04:25 2018-02-26 16:04:32          60.
-    ##  6 Ac3net   pretest   2018-02-28 19:04:30 2018-03-01 06:04:17         660.
-    ##  7 Ac3net   inspect   2018-03-01 06:19:03 2018-03-01 06:49:38          31.
-    ##  8 ACMEeqtl pretest   2018-03-06 14:49:12 2018-03-06 14:49:12           0.
-    ##  9 ACMEeqtl inspect   2018-03-06 15:04:26 2018-03-06 16:48:58         105.
-    ## 10 acs      recheck   2018-03-02 08:49:01 2018-03-02 09:49:04          60.
-    ## # ... with 1,972 more rows, and 1 more variable: step <int>
+    ## Observations: 1,930
+    ## Variables: 6
+    ## $ package      <chr> "A2", "A2", "abnormality", "abnormality", "Ac3net...
+    ## $ subfolder    <chr> "pretest", "inspect", "pretest", "inspect", "insp...
+    ## $ start        <dttm> 2018-03-06 16:34:09, 2018-03-06 16:48:58, 2018-0...
+    ## $ end          <dttm> 2018-03-06 16:34:09, 2018-03-09 03:04:26, 2018-0...
+    ## $ wait_minutes <dbl> 0, 3495, 18210, 1380, 60, 660, 31, 0, 105, 60, 30...
+    ## $ step         <int> 1, 2, 1, 2, 1, 2, 3, 1, 2, 1, 1, 2, 1, 1, 1, 1, 2...
+
+### Wait time histograms
 
 ``` r
 history %>%
   ggplot() +
-  geom_histogram(aes(wait_minutes), binwidth = 1000) +
-  theme_minimal()
-```
-
-![](README_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
-
-``` r
-history %>%
-  ggplot() +
-  geom_histogram(aes(wait_minutes), fill = "red", binwidth = 1000) +
-  facet_grid(subfolder ~.) +
-  theme_minimal()
-```
-
-![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
-
-``` r
-history %>%
-  ggplot() +
-  geom_histogram(aes(wait_minutes), fill = "red", binwidth = 1000) +
-  facet_grid(step ~.) +
-  theme_minimal()
-```
-
-![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
-
-``` r
-package_step <- history %>%
-  group_by(step, subfolder) %>%
-  summarise(
-    median_wait = round(median(wait_minutes)),
-    count = n()
-    ) %>%
-  mutate(step_name = paste0("step", step))
-```
-
-``` r
-package_step %>%
-  mutate(xlabel = ifelse(count > 200, prettyNum(count, ","), "")) %>%
-  ggplot() +
-  geom_col(aes(x = step_name, y = count, group = subfolder, fill = subfolder)) +
-  geom_text(aes(x = step_name, y = count, label = xlabel)) +
-  theme_void() +
-  scale_fill_manual(
-    limits = color_names, 
-    values = color_values
-  ) +
-  scale_color_manual(
-    limits = color_names, 
-    values = color_values
-  ) 
+  geom_histogram(
+    aes(wait_minutes), 
+    fill = "#ffb14e", 
+    color = "white", 
+    binwidth = 1000) +
+  theme_minimal() +
+  labs(title = "Wait time (In minutes)") +
+  theme(axis.title = element_blank()) 
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 ``` r
-package_step %>%
-  mutate(xlabel = ifelse(median_wait > 5000, prettyNum(median_wait, ","), "")) %>%
+history %>%
   ggplot() +
-  geom_col(aes(x = step_name, y = median_wait, group = subfolder, fill = subfolder)) +
-  geom_text(aes(x = step_name, y = median_wait - 2000, label = xlabel)) +
-  theme_void() +
-  scale_fill_manual(
-    limits = color_names, 
-    values = color_values
-  ) +
-  scale_color_manual(
-    limits = color_names, 
-    values = color_values
-  ) 
+  geom_histogram(
+    aes(wait_minutes), 
+    fill = "#ffb14e", 
+    color = "white", 
+    binwidth = 1000) +
+  facet_wrap(~subfolder, scales = "free") +
+  theme_minimal() +
+  labs(title = "Wait time by sub-folder") +
+  theme(axis.title = element_blank()) 
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+``` r
+history %>%
+  mutate(step = paste0("Step No. ", step)) %>%
+  ggplot() +
+  geom_histogram(
+    aes(wait_minutes), 
+    fill = "#ffb14e", 
+    color = "white", 
+    binwidth = 1000) +
+  facet_wrap(~step, scales = "free") +
+  theme_minimal() +
+  labs(title = "Wait time by Step Number") +
+  theme(axis.title = element_blank()) 
+```
+
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+
+### Package flow
 
 ``` r
 packages <- package_history %>%
@@ -162,13 +228,15 @@ package_steps <- packages %>%
       step = 1:steps
     )
   })
-```
 
-``` r
+
 history %>%
   select(package, subfolder, step) %>%
   right_join(package_steps, by = c("package", "step"))  %>%
-  mutate(subfolder = as.factor(subfolder)) %>%
+  mutate(
+    subfolder = as.factor(subfolder),
+    step = paste0("Step No. ", step)
+    ) %>%
   ggplot(aes(x = step, 
              stratum = subfolder, 
              alluvium = package, 
@@ -177,7 +245,7 @@ history %>%
              color = subfolder)) +
     geom_flow(stat = "alluvium", lode.guidance = "rightleft", alpha = 0.2) +
     geom_stratum(alpha = 0.8, color = "white") +
-    theme_void() +
+    theme_minimal() +
     scale_fill_manual(
       limits = color_names, 
       values = color_values
@@ -185,7 +253,11 @@ history %>%
       scale_color_manual(
       limits = color_names, 
       values = color_values
-    ) 
+    ) +
+  scale_x_discrete(
+    labels = c("Step No 1", "Step No 2", "Step No 3", "Step No 4", "Step No 5", "Step No 6")) +
+  theme(legend.position = "bottom") +
+  labs(title = "Package's sub-folder flow")
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
